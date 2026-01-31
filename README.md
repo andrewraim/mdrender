@@ -1,111 +1,137 @@
-> **This README is out of date. Updates coming soon.**
+# Overview
 
-# Introduction
+`panfig` is a script that facilitates using [pandoc](https://pandoc.org) to
+render documents such as markdown. Pandoc formats can be customized via its
+command line to do things like produce academic bibliographies with citations
+via [citeproc][citeproc], change page margins, and highlight links to be
+specified colors. However, the list of arguments can become somewhat long.
+`panfig` allows frequently used pandoc calls to be saved into configuration
+blocks so that they can be easily invoked. The goal is to make it as easy as
+possible to render and view documents as they are being authored and to be
+usable in a minimal environment with only pandoc, a text editor, and a tool to
+view the rendered document.
 
-This repo contains several command line utilities that use
-[Pandoc](https://pandoc.org) to render markdown files into customized formats.
-There are many excellent markdown editors that render and preview documents as
-you edit them. The tools in this repo are especially intended for use in a
-minimal environment with your preferred text editor and document viewer.
+By default, `panfig` renders the document source and exits. A configured
+previewer can also be launched, which will remain open after `panfig`
+completes. There is also a "watch" mode that periodically monitors the document
+source and rerenders it when the modification time changes on the file.
 
-The document formats are currently somewhat specific to my preferences. Feel
-free to take them as a starting point and customize for your own use.
+# Limitations
 
-- A PDF format for informal notes.
-- A PDF format suitable for informal slides.
-- An HTML format for informal notes. 
-
-Pandoc is document conversion program which and render a variety of formats
-like Latex documents, web pages, and slides from markdown files. Pandoc is very
-flexible and usable entirely through the command line, but customizing the
-output can be somewhat involved. 
+This program has been designed to work with documents that consist of a single
+file.
 
 # Installation
 
-Clone the repo.
+Clone the repo. Run `make` to copy the script to `~/.local/bin` and the default
+config file to `~/.config`
 
 ```bash
-$ git clone https://github.com/andrewraim/panc
+$ git clone https://github.com/andrewraim/panfig
+$ make
 ```
 
-Run `make` to install the scripts to `~/.local`. To invoke the scripts as
-commands, add `~/.local/bin` to your `$PATH` as follows. Include it in your
-bash configuration file to make it persist in subsequent terminal sessions.
+To invoke the scripts as commands, add `~/.local/bin` to your `$PATH` as
+follows. Include it in your bash configuration file to make it persist in
+subsequent terminal sessions.
 
 ```bash
 $ export PATH=$HOME/.local/bin:$PATH
 ```
 
-This should make the new command accessible.
+This should make the script accessible as commands.
 
 ```bash
-$ panc -f beamer examples/slides.md
+$ panfig -f slides examples/slides.md
 ```
 
 Run the command with `-h` for further information.
 
+# Configuration
+
+The `panfig` configuration is expected to be at path `~/.config/panfig.conf`
+and have a format like the following.
+
+```
+# This is a comment.
+
+[main]
+flags = --citeproc
+	--metadata link-citations=true
+default = html
+peek = 1
+rest = 5
+
+[html]
+desc = Standalone HTML document
+ext = html
+flags = -s -t html
+view = chromium %s
+```
+
+There is one `[main]` block with overall settings and one or more additional
+blocks which produce specific pandoc document types ("entries").
+
+The `[main]` block contains the following items.
+
+- `flags`: these flags will be passed to pandoc. Lines starting with an
+  indentation are assumed to be continuations of the previous line.
+- `default`: the default entry to use, if not specified on the command line.
+- `peek`: in watch mode, the number of seconds to wait before checking the
+  source file for modifications.
+- `rest`: in watch mode, the number of seconds to wait after rerendering the
+  document. This is to prevent rerendering from happening too frequently.
+
+The `[html]` block is an example of an entry type. These contain the following
+items.
+
+- `desc`: a brief description of the entry. This is shown in the `panfig` help
+  message.
+- `ext`: the extension to use for output files, unless a specific path is
+  given for the output on the command line.
+- `flags`: these flags will be passed to pandoc. Lines starting with an
+  indentation are assumed to be continuations of the previous line.
+- `view`: command to view the rendered output. The string `%s` is a placeholder
+  that will be replaced by the program.
+
+# Included Configuration
+
+There are several document formats in the included configuration file which are
+somewhat specific to my preferences. Feel free to take them as a starting point
+and customize for your own use.
+
+- `pdf`:  PDF document.
+- `slides`: PDF slides
+- `html`: standalone HTML document.
+
 # Custom Slide Theme
 
-Here is a note on how to use my nonstandard Beamer [theme][beamerthemeraim]
-with `slides.md` in the examples. Download the theme `sty` file to the folder
-with `slides.md`. Add the following to the YAML portion of the markdown source.
+Here is a note on how to use a nonstandard Beamer theme with the included
+`slides` entry. Let's use [beamerthemeraim][beamerthemeraim] with
+`examples/slides.md` as an example.
+
+Download `beamerthemeraim.sty` to the folder with `slides.md`.
+
+Add the following to the YAML portion of `slides.md`.
 
 ```markdown
 theme: raim
 ```
 
-The slides should now render with the custom theme.
-
-[beamerthemeraim]: https://github.com/andrewraim/beamerthemeraim
-
-# Previewing
-
-The script has a preview mode that renders the PDF or HTML output to a
-temporary location and opens a viewer with `xdg-open`.
-
-The viewer can be configured using the `xdg-mime` command. For example, here we
-set two particular applications PDF and HTML files. Additionals details are
-given in this [post](https://unix.stackexchange.com/a/59088).
+The slides should now render with the custom theme by invoking `panfig` /
+`pandoc`.
 
 ```bash
-$ xdg-mime default qpdfview.desktop application/pdf
-$ xdg-mime default lynx.desktop text/html
+$ panfig -f slides examples/slides.md
 ```
 
-[qpdfview](https://launchpad.net/qpdfview) is a graphical PDF viewer that
-supports viewing multiple documents in tabs. It is relatively light on
-dependencies and does not require a specific desktop environment.
+# Auto Refresh in HTML
 
-[lynx](https://lynx.invisible-island.net) is a terminal-based web browser. It
-was more standard before modern graphical web browsers, but is still very
-useful to navigate HTML documents that mostly consist of text.
-
-The `qpdfview.desktop` entry refers to the following file which was installed
-along with the `qpdfview` program.
-
-```bash
-$ ls /usr/share/applications/qpdfview.desktop
-```
-
-My installation of `lynx` did not include a `lynx.desktop` entry; therefore, I
-created the following file. Placing it in this location makes it specific to
-my user.
-
-```bash
-$ cat ~/.local/share/applications/lynx.desktop
-[Desktop Entry]
-Type=Application
-Name=lynx
-Comment=A text web browser
-Exec=lynx
-```
-
-# Auto Refresh
-
-Some preview tools such as Zathura automatically refresh when the underlying
-document has changed. This helps to preview a document as we are working on it.
-Web browsers typically do not this without extensions, but we can request the
-document be automatically refreshed by adding the following metadata.
+Some preview tools such as [Zathura][zathura] automatically refresh when the
+underlying document has changed. This helps to preview a document as we are
+working on it. Web browsers typically do not this without extensions, but we
+can request the document be automatically refreshed by adding the following
+metadata.
 
 ```html
 <meta http-equiv="refresh" content="1">
@@ -113,7 +139,7 @@ document be automatically refreshed by adding the following metadata.
 
 The value `1` here instructs the browser to reload every one second. Inserting
 this metadata can be accomplished using the `header-includes` argument to
-pandoc, as shown in the example configuration.
+pandoc, as shown in the the included configuration file.
 
 # Also See
 
@@ -122,4 +148,8 @@ pandoc, as shown in the example configuration.
 - [Quarto](https://quarto.org): A markdown-based documentation system that can
   render dynamic documents with embedded R, Python, and Julia code.
 
+
+[beamerthemeraim]: https://github.com/andrewraim/beamerthemeraim
+[citeproc]: https://pandoc.org/demo/example33/9-citations.html
+[zathura]: https://pwmt.org/projects/zathura
 

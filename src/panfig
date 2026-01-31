@@ -3,23 +3,24 @@
 # Exit codes
 exit_success=0
 exit_missing_mdfile=255
-exit_missing_format=254
+exit_missing_entry=254
 exit_bad_pandoc=252
 exit_bad_outdir=250
 exit_bad_viewer=248
 exit_bad_config=247
 
 progname=$(basename $0)
-version="0.1.1"
+version="0.2.0"
 
 # Default configuration path
 config_path="~/.config/${progname}.conf"
 
 print_help()
 {
-	echo "$progname $version: Render a markdown document with Pandoc"
+	echo "$progname $version: Render a document with Pandoc"
+
 	echo ""
-	print_formats "${config_path}"
+	print_entries "${config_path}"
 	echo ""
 
 	cat <<- EOF
@@ -27,7 +28,7 @@ print_help()
 
 	OPTIONS
 	  -c PATH   Path to configuration file (default: ${config_path})
-	  -f FORMAT One of the format labels listed above
+	  -e ENTRY  One of the entries listed above
 	  -h	    Print usage and exit
 	  -o FILE   Path of output file (default: save file to cwd with configured
 	            extension)
@@ -38,7 +39,7 @@ print_help()
 	EOF
 }
 
-print_formats()
+print_entries()
 {
 	# Expand tilde to HOME if it's in the path
 	local infile=${1/#\~/$HOME}
@@ -48,6 +49,8 @@ print_formats()
 		echo "[Config file not found at ${config_path}]"
 		return
 	fi
+
+	echo "ENTRIES"
 
 	while IFS= read -r line; do
 		# Ignore comment lines
@@ -59,7 +62,7 @@ print_formats()
 		if [[ "$line" =~ ^[[:space:]]*\[(.*)\][[:space:]]*$ ]]; then
 			if [[ -z ${value+x} ]] && [[ -n "$section" ]] &&
 			[[ $section != "main" ]]; then
-				# If we were in a format section (not "main") that didn't have
+				# If we were in an entry section (not "main") that didn't have
 				# a description, print something to indicate that.
 				echo "  - ${section}: (No description given)"
 			fi
@@ -73,7 +76,7 @@ print_formats()
 			echo "  - ${section}: ${value}"
 		fi
 
-		# Check for a default format
+		# Check for a default entry
 		if [[ $line =~ ^[[:space:]]*default[[:space:]]*=[[:space:]]*(.*)$ ]]; then
 			default=${BASH_REMATCH[1]}
 		fi
@@ -133,10 +136,10 @@ read_config()
 		fi
 	done < ${infile}
 
-	# If config array is still empty, the format was not found
+	# If config array is still empty, the entry was not found
 	if [ ${#config[@]} -eq 0 ]; then
-		echo "Format '${section}' not found"
-		exit $exit_missing_format
+		echo "Entry '${section}' not found"
+		exit $exit_missing_entry
 	fi
 }
 
@@ -194,7 +197,7 @@ watch_mode=false
 # ----- Get command line arguments -----
 
 # Get the options
-while getopts "hf:po:t:c:wVv" option; do
+while getopts "he:po:t:c:wVv" option; do
 	case $option in
 		h)
 			print_help
@@ -203,8 +206,8 @@ while getopts "hf:po:t:c:wVv" option; do
 		c)
 			config_path=${OPTARG}
 			;;
-		f)
-			format=${OPTARG}
+		e)
+			entry=${OPTARG}
 			;;
 		o)
 			outfile=${OPTARG}
@@ -247,37 +250,37 @@ for key in "${!config[@]}"; do
 	config_main["$key"]="${config[$key]}"
 done
 
-# Check for default format in config if not specified on CLI
-if [ -z "$format" ]; then
+# Check for default entry in config if not specified on CLI
+if [ -z "$entry" ]; then
 	if [ "${config_main["default"]}" != "" ]; then
-		format=${config_main["default"]}
+		entry=${config_main["default"]}
 	else
-		echo "No output format specified and no default set"
-		exit ${exit_missing_format}
+		echo "No entry specified and no default set"
+		exit ${exit_missing_entry}
 	fi
 fi
 
-# Read format config section and copy elements to array config_format
+# Read entry config section and copy elements to array config_entry
 declare -A config=()
-read_config ${config_path} ${format}
+read_config ${config_path} ${entry}
 
-declare -A config_format
+declare -A config_entry
 for key in "${!config[@]}"; do
-	config_format["$key"]="${config[$key]}"
+	config_entry["$key"]="${config[$key]}"
 done
 
 # Try to avoid error checking on these until/unless they are needed
-dest_ext=${config_format["ext"]}
-pandoc_flags="${config_main["flags"]} ${config_format["flags"]}"
+dest_ext=${config_entry["ext"]}
+pandoc_flags="${config_main["flags"]} ${config_entry["flags"]}"
 interval_peek=${config_main["peek"]}
 interval_rest=${config_main["rest"]}
-viewer_cmd=${config_format["view"]}
+viewer_cmd=${config_entry["view"]}
 
 # ----- Output filename -----
 # Name the output file if not specified as an argument
 if [ ! -v outfile ]; then
 	if [ "$dest_ext" == "" ]; then
-		echo "${config_path}: 'ext' not found for '${format}' format"
+		echo "${config_path}: 'ext' not found for '${entry}' entry"
 		exit ${exit_bad_config}
 	fi
 
@@ -309,7 +312,7 @@ if [[ $preview_toggle == "true" ]]; then
 fi
 
 if [ "$viewer_cmd" == "" ]; then
-	echo "${config_path}: 'view' not found for '${format}' format"
+	echo "${config_path}: 'view' not found for '${entry}' entry"
 	exit ${exit_bad_config}
 fi
 

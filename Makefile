@@ -2,8 +2,8 @@ DEST := $(HOME)/.local
 BIN := $(DEST)/bin
 CONFIG := $(HOME)/.config
 
-SCRIPTS := src/panc
-CONFIGS := src/panc.conf
+SCRIPTS := src/panfig
+CONFIGS := src/panfig.conf
 
 .PHONY: install uninstall
 
